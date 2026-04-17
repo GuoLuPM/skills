@@ -1,70 +1,70 @@
 ---
 name: manual-frontend-debugging
-description: Use when debugging a browser UI bug is faster through user repro plus temporary runtime probes than through full automation, and the agent should inspect event flow or state-sync logs instead of doing design, implementation, or routine browsing work.
+description: 当浏览器界面问题更适合由用户手动复现，而不是由代理全程自动化时使用；此时代理应临时注入短日志，等待用户复现，再通过事件链和状态同步日志定位问题，而不是去做设计、实现或常规浏览操作。
 homepage: https://github.com/GuoLuPM/skills
 ---
 
-# Manual Frontend Debugging
+# 互动式前端调试
 
-## Overview
+## 概览
 
-This is a frontend debugging skill only. The agent switches from repeated browser automation to user-driven reproduction, adds short-lived runtime probes, and diagnoses the bug from captured event flow.
+这是一份只用于前端调试的技能。代理不再反复自动化点页面，而是改成由用户亲自复现，代理临时挂短日志，再根据采集到的事件链定位问题。
 
-## Use When
+## 什么时候用
 
-- The user can reproduce the bug reliably or semi-reliably.
-- Timing, hover, focus, partial refresh, or state-sync behavior matters.
-- Browser automation is unstable, slow to write, or slower than the user's manual repro.
-- The main question is "which branch actually ran?" rather than "what does the UI look like?"
+- 用户可以稳定或半稳定地复现问题。
+- 复现依赖时机、悬停、焦点、局部刷新或状态同步。
+- 浏览器自动化难以稳定复现，或者写自动化比让用户手动操作更慢。
+- 你真正想知道的是“实际走了哪条分支”，而不是“页面长什么样”。
 
-## Do Not Use
+## 不适用
 
-- A stable automated repro already exists.
-- The issue is backend-only, terminal-only, or not a browser UI problem.
-- The task is routine browsing, screenshots, or form filling.
-- The task is UI design, visual review, page implementation, or styling work.
+- 已经有稳定的自动化复现方式。
+- 问题只在后端、终端，或根本不是浏览器界面问题。
+- 任务只是常规浏览、截图、填表单。
+- 任务是界面设计、视觉评审、页面实现或样式调整。
 
-## Workflow
+## 工作流程
 
-1. Pick 1 to 3 observation points before guessing the fix.
-2. Add temporary runtime probes only. Do not commit permanent debug logging.
-3. Limit logs to one click chain or one gesture chain.
-4. Ask the user to reproduce once, then wait.
-5. Read logs in order: entry -> branch -> state write -> refresh, close, or exit.
+1. 先定 1 到 3 个观察点，再讨论修复。
+2. 只加临时运行时探针，不把调试日志永久写进仓库。
+3. 把日志限制在一次点击链或一次手势链内。
+4. 让用户按原路径复现一次，然后等待。
+5. 按顺序读日志：入口 -> 分支 -> 状态写入 -> 刷新、关闭或退出。
 
-## Probe Rules
+## 打桩规则
 
-- Prefer runtime injection through DevTools, browser MCP, or script execution.
-- Keep each log line single-line and low volume.
-- For high-frequency hover or move events, log counters or first and last samples only.
-- Probe only the few function boundaries that can explain the bug.
+- 优先用开发者工具、浏览器控制工具或脚本执行做运行时注入。
+- 每条日志尽量保持单行、低噪音。
+- 对高频的悬停或移动事件，只记计数或首尾样本。
+- 只盯真正可能解释问题的几个函数边界。
 
-Recommended fields:
+推荐字段：
 
 ```text
 seq, fn, branch, point, boxIndex, candidateCount, selectedBoxIndex, hoverBoxIndex
 ```
 
-## User Prompts
+## 协作话术
 
-Use direct prompts such as:
+可以直接这样对用户说：
 
-- "I've added short-lived probes. Reproduce once and tell me when you're done."
-- "I'm only watching these 3 functions. Follow the same path 2 or 3 times, then send me the signal."
-- "Logs are limited to one click chain. You can start now."
+- “我已经挂好短日志了，你按原路径操作一次，完了告诉我。”
+- “我现在只看这 3 个函数，你按刚才方式操作 2 到 3 次，然后给我信号。”
+- “日志已经限到一次点击链，你现在可以开始了。”
 
-## Read Logs In This Order
+## 读日志顺序
 
-1. Did the action enter the intended handler?
-2. Were the key parameters correct?
-3. Which guard, fallback, or branch diverted execution?
-4. Which write produced the wrong state?
-5. Which refresh, close, or exit followed?
+1. 这次操作有没有进入目标处理函数。
+2. 关键参数是不是预期值。
+3. 是哪个判断、兜底或分支把执行链带偏了。
+4. 是哪次写入把状态写错了。
+5. 后面是谁触发了错误的刷新、关闭或退出。
 
-## Guardrails
+## 约束
 
-- Do not commit debug logs to the repo.
-- Do not add broad, unrelated probes.
-- Do not refactor before the user has reproduced the issue.
-- This skill defines a collaboration pattern, not a guarantee that the agent can attach to the current browser session.
-- Remove or disable temporary probes after diagnosis.
+- 不要把调试日志提交进仓库。
+- 不要加大范围、无关的探针。
+- 用户还没复现之前，不要先去重构实现。
+- 这份技能只定义协作方式，不保证代理一定能接管当前浏览器会话。
+- 定位完成后要移除或关闭临时探针。
