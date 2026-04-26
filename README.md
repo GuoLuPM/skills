@@ -17,5 +17,5 @@ Fetch and follow instructions from https://raw.githubusercontent.com/GuoLuPM/ski
   - 你可以直接说：`这个子代理提示里再补一下：要单独验证业务逻辑主链和是否存在兜底链路。`
 
 - `codecheck-workflow`
-  - 触发：你拿到 CodeCheck、CodeArts Check、静态检查或 lint 导出单，想优先按低风险规则批量收口，而不是大改业务逻辑。
-  - 你可以直接说：`先按低风险机械规则分桶处理这份 CodeCheck 导出单，不要主动改业务逻辑。`
+  - 触发：你要处理华为 CodeCheck。
+  - 你可以直接说：`帮我做下华为 CodeCheck。`
