@@ -1,6 +1,6 @@
 ---
 name: codecheck-workflow
-description: 当用户给出 CodeCheck / CodeArts Check / 华为云代码检查 / 静态检查 / lint / CI 门禁导出单，并希望只处理代码表达形式问题时使用。适用于 `.xlsx` 缺陷导出、规则分桶、华为 CodeArts Check 规则名解释、低风险规则批量收口、方法顺序重排和整改闭环验证。不适用于业务逻辑改动、代码重构、架构重构、测试失败排障或任何会改变语义与返回契约的任务。
+description: 只有当用户明确提到华为 CodeCheck / CodeArts Check / 华为云代码检查，或明确给出华为这套门禁的规则名、导出单时才使用。适用于华为 CodeArts Check 的 `.xlsx` 缺陷导出、规则分桶、规则名解释、低风险规则批量收口、方法顺序重排和整改闭环验证。不适用于普通写代码、通用 lint、通用静态检查、业务逻辑改动、代码重构、架构重构、测试失败排障或任何会改变语义与返回契约的任务。
 ---
 
 # CodeCheck 工作流
@@ -23,13 +23,15 @@ CodeCheck 只处理代码表达形式问题。
 
 ## 什么时候用
 
-- 用户给的是 `CodeCheck`、`CodeArts Check`、`lint`、`static analysis`、`defect export`、`CI check` 的问题单。
-- 用户直接提到华为云 `CodeArts Check`、`CodeCheck`、规则名如 `G.CLS.06`、`G.FMT.02`、`G.CLS.11`。
-- 用户要求“先把门禁问题打下来”，且明确不希望动业务逻辑。
-- 用户给的是 `.xlsx`、`.csv`、文本报告、规则列表、问题列表，而不是单一运行时问题。
+- 用户明确提到华为云 `CodeArts Check`、`CodeCheck`、华为代码检查。
+- 用户给出华为规则名，如 `G.CLS.06`、`G.FMT.02`、`G.CLS.11`。
+- 用户给的是华为这套门禁导出的 `.xlsx`、`.csv`、文本报告、规则列表、问题列表。
+- 用户明确说的是“帮我处理华为 CodeCheck”，而不是一般性的代码问题。
 
 ## 不适用
 
+- 普通写代码、日常编码辅助。
+- 通用 `lint`、通用静态检查、普通 CI 问题。
 - 用户要做业务功能改造。
 - 用户要求借机做代码重构或架构重构。
 - 问题已经明确落在异常语义、fallback、缓存兼容、状态恢复、返回契约上。
