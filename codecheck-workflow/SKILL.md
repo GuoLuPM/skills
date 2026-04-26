@@ -1,0 +1,114 @@
+---
+name: codecheck-workflow
+description: 当用户给出 CodeCheck / CodeArts Check / 华为云代码检查 / 静态检查 / lint / CI 门禁导出单，或者要求“尽量不改业务逻辑地处理静态规范问题”时使用。适用于 `.xlsx` 缺陷导出、规则分桶、华为 CodeArts Check 规则名解释、低风险规则批量收口、方法顺序重排、风险规则止损和整改闭环验证。不适用于功能开发、业务重构、测试失败排障或需要主动改变返回契约的任务。
+---
+
+# CodeCheck 工作流
+
+## 什么时候用
+
+- 用户给的是 `CodeCheck`、`CodeArts Check`、`lint`、`static analysis`、`defect export`、`CI check` 的问题单。
+- 用户直接提到华为云 `CodeArts Check`、`CodeCheck`、规则名如 `G.CLS.06`、`G.FMT.02`、`G.CLS.11`。
+- 用户要求“先把门禁问题打下来”，且明确不希望为规范大改业务逻辑。
+- 用户给的是 `.xlsx`、`.csv`、文本报告、规则列表、问题列表，而不是单一运行时问题。
+
+## 不适用
+
+- 用户要做业务功能改造。
+- 用户要求按长期可维护性重构，而不是先过门禁。
+- 问题已经明确落在异常语义、fallback、缓存兼容、状态恢复、返回契约上。
+
+## 先做的事
+
+1. 先识别这是不是华为 `CodeArts Check` 语境。
+2. 如果问题名里出现 `G.*` 前缀，或者用户明确提到华为云代码检查，先读 `references/huawei-codearts-check.md`。
+3. 如果用户问的是产品/API/任务配置，而不是代码整改，也先读 `references/huawei-codearts-check.md`，优先使用官方文档，不要把样例脚本当标准。
+
+## 快速流程
+
+1. 先确认输入是什么：原始导出单、归一化问题项，还是人工整理后的规则列表。
+2. 如果输入是 `.xlsx`，优先运行 `scripts/summarize_codecheck_xlsx.py` 先做规则/文件分布统计。
+3. 按风险把规则分三桶：
+   - 低风险机械桶：文件头、docstring、长行、未使用导入、注释废代码、`staticmethod`、纯方法顺序重排。
+   - 中风险结构桶：局部 helper、局部嵌套函数、轻量返回整理、轻量命名整理。
+   - 高风险语义桶：`protected-access`、异常处理、日志语义、`SystemExit`、fallback、缓存/状态/历史恢复。
+4. 第一轮只打低风险桶，不混入高风险规则。
+5. 低风险清完后，再看是否值得单开一轮只做 `G.CLS.06 / function-order`。
+6. 对每一批改动做固定验证，不要因为是“规范问题”就省掉验证。
+
+## 华为 CodeArts Check 模式
+
+如果当前输入是华为这套门禁，默认采用下面的知识优先级：
+
+1. 当前代码和当前工作树状态
+2. 当前轮导出单
+3. 同任务历史导出单
+4. 华为云官方 `CodeArts Check` 文档和 API 文档
+5. Jenkins / Gitee / 第三方接入样例
+
+不要默认代理已经理解华为规则前缀。需要时先读参考文档里的规则族解释，再做分桶。
+
+## 固定验证闭环
+
+- `python -m py_compile <files>`
+- `git diff --check -- <files>`
+- 关键模块最小 import smoke
+- 长行扫描
+
+如果是多文件批次：
+
+- 对所有已改 Python 文件做 `py_compile`
+- `git diff --check -- '*.py'`
+
+## 默认可直接推进的规则
+
+- `C0116`
+- 文件头规则
+- 行宽
+- 未使用导入
+- 注释废代码
+- `staticmethod / classmethod`
+- `G.CLS.06`
+- 基础缩进和空格规则
+
+## 默认只记录风险、不自动推进的规则
+
+- `G.CLS.11`
+- `G.LOG.02`
+- `G.ERR.07`
+- `G.ERR.11`
+- 返回值统一但会改返回契约的规则
+- `shell=True / shell=False`
+- fallback、默认值补偿、cache bypass
+- session / runtime state / history restore 相关语义调整
+
+## 输出要求
+
+无论是分析还是整改建议，输出至少包含：
+
+- 当前优先级最高的规则桶
+- 哪些问题适合机械处理
+- 哪些问题已碰语义边界
+- 当前建议的执行顺序
+- `[假设]`
+- 证据
+
+如果用户问的是华为平台本身，而不是具体代码整改，输出还要包含：
+
+- 使用了哪份官方文档
+- 这是产品事实、样例做法，还是当前代码状态
+
+## 停手条件
+
+- 需要改变返回结构。
+- 需要改变异常传播。
+- 需要改变 fallback / cache / session / history 语义。
+- 需要跨多个模块同步重构才能过规则。
+
+出现这些情况时，应改为“列风险 + 等用户确认”，不要继续自动整改。
+
+## 需要时再读
+
+- 需要更完整的方法论、风险分桶、验证建议时，读 `references/playbook.md`。
+- 需要解释华为 `CodeArts Check`、规则族、资料来源、任务配置、API 或最佳实践时，读 `references/huawei-codearts-check.md`。
+- 需要快速统计 `.xlsx` 导出单时，运行 `scripts/summarize_codecheck_xlsx.py`。
