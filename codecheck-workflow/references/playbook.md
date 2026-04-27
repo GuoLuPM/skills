@@ -99,7 +99,36 @@ CodeCheck 只处理代码表达形式。
 
 处理完成后再按当前导出单逐条验证 `A should be after B`，失败数必须为 0。
 
-### 4. 有些规则看起来像风格问题，实际上是语义问题
+### 4. JS/ECMAScript 大批量问题要用 AST，不要用正则硬改
+
+常见低风险表达规则：
+
+- `G.EXP.03`：嵌套三元表达式。
+- `G.DCL.01`：禁止 `var`。
+- `G.DCL.03`：每个语句只声明一个变量。
+- `G.DCL.06`：使用字面量风格声明，例如 `{}` / `[]`。
+- `G.TYP.01`：浮点数字面量不能写成 `.08` 或 `1.`。
+
+处理建议：
+
+- 用 Babel/parser 解析当前导出单里的 JS 文件，`sourceType` 优先设为 `unambiguous`，兼容脚本和模块。
+- 只改当前导出单文件集合；改完后用 `git diff --name-only` 和导出单文件集合做精确对比。
+- `var` 改 `const/let` 前先扫描后续赋值和自增自减；不确定时用 `let`。
+- 多声明拆分时不要拆 `for` / `for-in` / `for-of` 初始化语句。
+- `new Object()` / `new Array(a, b)` 可改 `{}` / `[a, b]`；`new Array(length)` 语义特殊，不要机械改成 `[length]`。
+- 嵌套三元可以改成立即执行函数中的 `if/return`，这是表达形式整改；不要顺手重排周边控制流。
+- `alert()` 不是纯文本替换。只有项目已有同语义通知入口且周边已有模式时，才替换为 `setStatus` / toast / message；否则归入风险桶。
+- Babel generator 可能保留或重写 `NumericLiteral.extra.raw`，最终必须再扫源码文本或 AST raw，确认不存在 `.08` 这类省略 0 写法。
+
+JS 批量改完至少验证：
+
+- 所有目标文件 Babel parse 成功。
+- 所有目标文件 `node --check` 成功。
+- 专用规则反扫为 0：嵌套 `ConditionalExpression`、`var`、非 `for` 多声明、裸 `alert`、`new Object/Array`、省略 0 的浮点 raw。
+- `git diff --check HEAD` 成功。
+- 已修改的 tracked 文件集合等于当前导出单文件集合。
+
+### 5. 有些规则看起来像风格问题，实际上是语义问题
 
 尤其是：
 
@@ -115,7 +144,7 @@ CodeCheck 只处理代码表达形式。
 
 `G.FNM.07` 要特别保守。只有在“不改变调用次数、异常传播、返回契约”的前提下，才可以把裸调用改成显式接收并消费返回值，例如赋给 `_result` 后做无语义 no-op。不能为了规则改成新的分支、吞异常或改变失败路径。
 
-### 5. 不要为了过规范去抽 helper 或整理结构
+### 6. 不要为了过规范去抽 helper 或整理结构
 
 如果一个规则要靠下面这些动作才能通过：
 
@@ -143,6 +172,7 @@ CodeCheck 只处理代码表达形式。
 - 注释废代码
 - `staticmethod / classmethod`
 - `G.CLS.06`
+- JS 字面量、声明拆分、嵌套三元等纯表达规则
 - 基础格式规则
 
 ### 高风险边界桶
@@ -151,6 +181,7 @@ CodeCheck 只处理代码表达形式。
 - `G.LOG.02`
 - `G.ERR.07`
 - `G.ERR.11`
+- `alert` 在没有现成等价通知入口时
 - fallback / cache bypass
 - session / history / runtime scope
 - 任何会改返回契约的规则
@@ -184,6 +215,7 @@ CodeCheck 只处理代码表达形式。
 - 长行扫描
 - 对当前导出单做规则专属复核，例如 `G.CLS.06` 关系扫描。
 - 对机械重排做 AST hash / decorator 对比，证明没有改方法体。
+- 对 JS 表达规则做 AST/文本反扫和 `node --check`。
 
 不要因为“只是规范”就跳过验证。
 
@@ -193,6 +225,7 @@ CodeCheck 只处理代码表达形式。
 - `python -m pycodestyle --max-line-length=120 <files>`
 - `python -m pylint --disable=all --enable=<本轮相关规则> <files>`
 - `python -m mccabe --min 21 <files>`
+- `node --check <files>`
 - `git diff --check HEAD`
 
 验证要以本轮涉及文件为主；如用户问“所有历史表”，再汇总历史表文件集合。历史表复核时要明确区分“当前最新表 0 失败”和“旧快照与新顺序冲突”。
@@ -256,14 +289,21 @@ CodeCheck 只处理代码表达形式。
 
 规则含义不确定时，先查华为 CodeArts Check 官方资料；官方资料不足以解释接入行为时，再看 Gitee、Jenkins 或其他样例，但要明确那只是样例做法，不是产品契约。
 
-## 最后记住的 6 条
+### 误区 8
+
+JS 批量整改只看 AST，不看最终源码文本。
+
+实际经验是：数字字面量等规则可能藏在 raw 文本里。即使 AST 上数值相同，也要检查最终源码里是否仍有 `.08` / `1.` 这类写法。
+
+## 最后记住的 7 条
 
 1. 当前代码永远优先于导出单。
 2. 第一轮先打低风险表达形式规则。
 3. 后期剩余问题更接近边界问题。
 4. `G.CLS.06` 可以单独开轮处理。
 5. 超出表达形式边界的规则默认只记风险，不自动整改。
-6. 这份技能的价值是给代理稳定流程，而不是堆产品背景介绍。
+6. JS 批量规则要用 AST 改、用 AST 加源码文本反扫验。
+7. 这份技能的价值是给代理稳定流程，而不是堆产品背景介绍。
 
 ## 多轮 CodeCheck 实战闭环
 
@@ -275,5 +315,6 @@ CodeCheck 只处理代码表达形式。
 4. 重排前保存方法 AST hash 和装饰器。
 5. 重排后验证当前表关系 0 失败。
 6. 再验证方法 hash / 装饰器 0 变化。
-7. 跑编译、格式、目标 pylint、复杂度和 `git diff --check`。
-8. 提交前确认分支和远端一致，提交后再推送目标分支。
+7. 若是 JS 批量表，额外跑 Babel parse、`node --check`、规则反扫和文件集合对比。
+8. 跑编译、格式、目标 pylint、复杂度和 `git diff --check`。
+9. 提交前确认分支和远端一致，提交后再推送目标分支。

@@ -47,7 +47,7 @@ CodeCheck 只处理代码表达形式问题。
 1. 先确认输入是什么：原始导出单、归一化问题项，还是人工整理后的规则列表。
 2. 如果输入是 `.xlsx`，优先运行 `scripts/summarize_codecheck_xlsx.py` 先做规则/文件分布统计。
 3. 按性质把规则分两桶：
-   - 表达形式桶：文件头、docstring、长行、未使用导入、注释废代码、`staticmethod`、纯方法顺序重排。
+   - 表达形式桶：文件头、docstring、长行、未使用导入、注释废代码、`staticmethod`、纯方法顺序重排、JS 字面量/声明/嵌套三元表达式等语法表达问题。
    - 非表达形式桶：任何会引出结构整理、语义变化、异常路径变化、状态变化、返回契约变化的问题。
 4. 只处理表达形式桶，不混入非表达形式规则。
 5. 对 `G.CLS.06 / function-order` 这类规则，也只允许做纯方法顺序重排，不允许顺手整理实现。
@@ -74,11 +74,13 @@ CodeCheck 只处理代码表达形式问题。
 - 长行扫描
 - 对 `G.CLS.06`，额外验证当前导出单中的 `A should be after B` 关系为 0 失败。
 - 对方法重排，额外用 AST hash 对比方法体和装饰器，确认只移动方法块。
+- 对 JS/ECMAScript 表达式规则，额外做解析/语法/规则反扫：Babel parse、`node --check <files>`、`git diff --check`，并确认“已修改文件集合”和“当前导出单文件集合”一致。
 
 如果是多文件批次：
 
 - 对所有已改 Python 文件做 `py_compile`
 - `git diff --check -- '*.py'`
+- 对所有已改 JS 文件做 `node --check`
 
 ## 默认可直接推进的规则
 
@@ -90,6 +92,7 @@ CodeCheck 只处理代码表达形式问题。
 - `staticmethod / classmethod`
 - `G.CLS.06`
 - 基础缩进和空格规则
+- JS 低风险表达规则：`G.DCL.01` (`var` -> `let/const`)、`G.DCL.03`（每条语句一个声明）、`G.DCL.06`（`new Object/Array` 字面量）、`G.TYP.01`（`.08` -> `0.08`）、`G.EXP.03`（嵌套三元改为等价 `if/return` 表达式）。
 
 ## 默认只记录风险、不自动推进的规则
 
@@ -100,6 +103,7 @@ CodeCheck 只处理代码表达形式问题。
 - 任何需要抽 helper、拆函数、整理控制流才能过的规则
 - 返回值统一但会改返回契约的规则
 - `shell=True / shell=False`
+- JS `alert` 替换：只有项目已有等价通知入口（如 `setStatus`、toast、message）且周边代码同样使用时才可直接改；否则先标风险，因为 `alert` 的阻塞弹窗语义和普通状态提示不同。
 - fallback、默认值补偿、cache bypass
 - session / runtime state / history restore 相关语义调整
 
@@ -131,6 +135,6 @@ CodeCheck 只处理代码表达形式问题。
 
 ## 需要时再读
 
-- 需要更完整的方法论、风险分桶、验证建议、多轮报告冲突处理、`G.CLS.06` 拓扑重排经验时，读 `references/playbook.md`。
+- 需要更完整的方法论、风险分桶、验证建议、多轮报告冲突处理、JS 批量机械整改、`G.CLS.06` 拓扑重排经验时，读 `references/playbook.md`。
 - 需要解释华为 `CodeArts Check`、规则族、资料来源、任务配置、API 或最佳实践时，读 `references/huawei-codearts-check.md`。
 - 需要快速统计 `.xlsx` 导出单时，运行 `scripts/summarize_codecheck_xlsx.py`。
